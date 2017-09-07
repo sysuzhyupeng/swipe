@@ -102,13 +102,14 @@ function Swipe(container, options){
 		//delay之后调用next函数
 		interval = setTimeout(next, delay);
 	}
+	//消除当前滑动执行进程
 	function stop(){
 		delay = 0;
 		clearTimeout(interval);
 	}
 	var start = {},
 		delta = {},
-		isScrolling = false;
+		isScrolling;
 
 	var events = {
 		handleEvent: function(event){
@@ -140,9 +141,74 @@ function Swipe(container, options){
 			element.addEventListener('touchend', this, false);
 		},
 		move: function(event){
-			if(event.touches.length > 1)
+			if(event.touches.length > 1 || event.scale && event.scale !== 1){
+				return;
+			}
+			if(options.disableScroll) event.preventDefault();
+			var touches = event.touches[0];
+			delta = {
+				x: touches.pageX - start.x,
+				y: touches.pageY - start.y
+			}
+
+			if(typeof isScrolling === 'undefined'){
+				isScrolling = !!( isScrolling || Math.abs(delta.x) < Math.abs(delta.y) );
+			}
+			//未实现完
 		}
 	}
+	//触发setup
+  	setup();
+  	//开始自动轮播
+  	if(delay) begin();
+  	if(browser.addEventListener){
+  		//如果支持touch事件
+  		if (browser.touch) element.addEventListener('touchstart', events, false);
+  		if (browser.transitions) {
+	        element.addEventListener('webkitTransitionEnd', events, false);
+	        element.addEventListener('msTransitionEnd', events, false);
+	        element.addEventListener('oTransitionEnd', events, false);
+	        element.addEventListener('otransitionend', events, false);
+	        element.addEventListener('transitionend', events, false);
+	    }
+	    window.addEventListener('resize', events, false);
+  	} else {
+  		window.onresize = function(){
+  			setup();
+  		}
+  	}
+  	return {
+  		setup: function(){
+  			//将setup等函数暴露出去
+  			setup();
+  		},
+  		slide: function(to, speed){
+  			stop();
+  			slide(to, speed);
+  		},
+  		prev: function(){
+  			stop();
+  			prev();
+  		},
+  		next: function(){
+  			stop();
+  			next();
+  		},
+  		stop: function(){
+  			stop();
+  		},
+  		getPos: function(){
+  			//返回当前index position
+  			return index;
+  		},
+  		getNumSlides: function(){
+  			//获取滑动组件的个数
+  			return length;
+  		},
+  		kill: function(){
+  			stop();
+  		}
+  	}
 }
 
 if(window.jQuery || window.Zepto){
