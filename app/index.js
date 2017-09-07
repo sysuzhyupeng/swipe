@@ -61,7 +61,7 @@ function Swipe(container, options){
 			if(options.continuous){
 				var natual_direction = direction;
 				direction = -slidePos[circle[to]] / width;
-				 // if going forward but to < index, use to = slides.length + to
+				// if going forward but to < index, use to = slides.length + to
         		// if going backward but to > index, use to = -slides.length + to
         		if (direction !== natural_direction) to =  -direction * slides.length + to;
 			}
@@ -75,10 +75,78 @@ function Swipe(container, options){
 			move(index, width * direction, slideSpeed || speed);
 		}
 	}
+	//dist这里指代距离
+	function move(index, dist, speed){
+		translate(index, dist, speed);
+		slidePos[index] = dist;
+	}
+	//最后操作css属性的滑动
+	function translate(index, dist, speed){
+		//slide为
+		var slide = slides[index];
+		var style = slide && slide.style;
+		if(!style) return;
+		//speed为传入的动画时间，通过传入的距离改变translate属性
+		style.webkitTransitionDuration =
+	    style.MozTransitionDuration =
+	    style.msTransitionDuration =
+	    style.OTransitionDuration =
+	    style.transitionDuration = speed + 'ms';
+
+	    style.webkitTransform = 'translate(' + dist + 'px,0)' + 'translateZ(0)';
+	    style.msTransform =
+	    style.MozTransform =
+	    style.OTransform = 'translateX(' + dist + 'px)';
+	}
+	function begin(){
+		//delay之后调用next函数
+		interval = setTimeout(next, delay);
+	}
+	function stop(){
+		delay = 0;
+		clearTimeout(interval);
+	}
+	var start = {},
+		delta = {},
+		isScrolling = false;
+
+	var events = {
+		handleEvent: function(event){
+			switch(event.type){
+				//根据不同的事件调用不同的逻辑
+				case 'touchstart': this.start(event); break;
+		        case 'touchmove': this.move(event); break;
+		        case 'touchend': offloadFn(this.end(event)); break;
+		        case 'webkitTransitionEnd':
+		        case 'msTransitionEnd':
+		        case 'oTransitionEnd':
+		        case 'otransitionend':
+		        case 'transitionend': offloadFn(this.transitionEnd(event)); break;
+		        case 'resize': offloadFn(setup); break;
+			}
+			if(options.stopPropagation) event.stopPropagation();
+		},
+		start: function(event){
+			var touches = event.touches[0];
+			start = {
+				//获得一开始的触摸坐标以及时间戳
+				x: touches.pageX,
+				y: touches.pageY,
+				time: +new Date
+			};
+			isScrolling = undefined;
+			delta = {};
+			element.addEventListener('touchmove', this, false);
+			element.addEventListener('touchend', this, false);
+		},
+		move: function(event){
+			if(event.touches.length > 1)
+		}
+	}
 }
 
 if(window.jQuery || window.Zepto){
-	function($){
+	(function($){
 		$.fn.Swipe = function(params){
 			return this.each(function(){
 				$(this).data('Swipe', new Swipe($(this)[0], params));
