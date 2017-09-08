@@ -135,6 +135,7 @@ function Swipe(container, options){
 	}
 	/*
 		dist这里指代距离
+		speed指代滑动动画执行时间
 	*/
 	function move(index, dist, speed){
 		translate(index, dist, speed);
@@ -142,7 +143,15 @@ function Swipe(container, options){
 	}
 	//最后操作css属性的滑动
 	function translate(index, dist, speed){
-		//slide为
+		/*
+			transform: translate(-500px, 0px);
+			通过 translate() 方法，元素从其当前位置移动，
+			根据给定的 left（x 坐标） 和 top（y 坐标） 位置参数
+		*/
+		/*
+			style.transitionDuration更改transition-duration属性
+			transition-duration规定动画时间
+		*/
 		var slide = slides[index];
 		var style = slide && slide.style;
 		if(!style) return;
@@ -165,18 +174,20 @@ function Swipe(container, options){
 	        return;
 	    }
 	    var start = +new Date;
-	    var timer = setInterval(function() {
-	    var timeElap = +new Date - start;
-	        if(timeElap > speed) {
-	        element.style.left = to + 'px';
-	        if (delay) begin();
-	        options.transitionEnd && options.transitionEnd.call(event, index, slides[index]);
-	        clearInterval(timer);
-	        return;
-	      }
+	    var timer = setInterval(function(){
+	    	var timeElap = +new Date - start;
+	        if(timeElap > speed){
+		        element.style.left = to + 'px';
+		        if (delay) begin();
+		        options.transitionEnd && options.transitionEnd.call(event, index, slides[index]);
+		        clearInterval(timer);
+		        return;
+		    }
 	        element.style.left = (( (to - from) * (Math.floor((timeElap / speed) * 100) / 100) ) + from) + 'px';
 	    }, 4);
 	}
+
+
 	var delay = options.auto || 0;
 	var interval;
 
@@ -196,14 +207,20 @@ function Swipe(container, options){
 	/*
 		addEventListener的参数listener必须是一个实现了EventListener接口的对象，或者是一个函数。
 		这里使用的就是一个实现了EventListener接口的对象，
-		当EventListener 所注册的事件发生的时候，handleEvent方法会被调用。
+		当EventListener所注册的事件发生的时候，handleEvent方法会被调用。
+		同时handleEvent方法的event参数为当前的事件对象
 	*/
 	var events = {
 		handleEvent: function(event){
-			//event参数自动获取到当前的事件对象
+			/*
+				touchmove也一样会触发touchstart事件，
+				所以touch之后这里的start方法一定会执行，
+				原本element没有绑定touchmove和touchend事件，
+				在start方法中绑定
+			*/
 			switch(event.type){
 				//根据不同的事件调用不同的逻辑
-				//调用这个方法时，this指向event对象
+				//调用这个方法时，this指向events对象
 				case 'touchstart': this.start(event); break;
 		        case 'touchmove': this.move(event); break;
 		        case 'touchend': offloadFn(this.end(event)); break;
@@ -231,10 +248,11 @@ function Swipe(container, options){
 			element.addEventListener('touchend', this, false);
 		},
 		move: function(event){
-			//保证只有一指活动并且没有
+			//保证只有一指活动或者多指活动且不是pinch
 			if(event.touches.length > 1 || event.scale && event.scale !== 1){
 				return;
 			}
+			//touchmove的default
 			if(options.disableScroll) event.preventDefault();
 			var touches = event.touches[0];
 			delta = {
@@ -246,24 +264,23 @@ function Swipe(container, options){
 				isScrolling = !!( isScrolling || Math.abs(delta.x) < Math.abs(delta.y) );
 			}
 			if (!isScrolling){
-		        // prevent native scrolling
+		        //避免native scrolling
 		        event.preventDefault();
-		        // stop slideshow
+		        //停止slideshow
 		        stop();
-		        // increase resistance if first or last slide
-		        if (options.continuous) { // we don't add resistance at the end
-		            translate(circle(index-1), delta.x + slidePos[circle(index-1)], 0);
+		        if (options.continuous){
+		            translate(circle(index - 1), delta.x + slidePos[circle(index - 1)], 0);
 		            translate(index, delta.x + slidePos[index], 0);
-		            translate(circle(index+1), delta.x + slidePos[circle(index+1)], 0);
+		            translate(circle(index + 1), delta.x + slidePos[circle(index + 1)], 0);
 		        } else {
-		          delta.x =
-		            delta.x /
-		              ( (!index && delta.x > 0               // if first slide and sliding left
-		                || index == slides.length - 1        // or if last slide and sliding right
-		                && delta.x < 0                       // and if sliding at all
-		              ) ?
-		              ( Math.abs(delta.x) / width + 1 )      // determine resistance level
-		              : 1 );                                 // no resistance if false
+		          	delta.x =
+			            delta.x /
+			              ( (!index && delta.x > 0               // if first slide and sliding left
+			                || index == slides.length - 1        // or if last slide and sliding right
+			                && delta.x < 0                       // and if sliding at all
+			              ) ?
+			              ( Math.abs(delta.x) / width + 1 )      // determine resistance level
+			              : 1 );                                 // no resistance if false
 		            // translate 1:1
 		            translate(index-1, delta.x + slidePos[index-1], 0);
 		            translate(index, delta.x + slidePos[index], 0);
@@ -279,76 +296,54 @@ function Swipe(container, options){
 	            Number(duration) < 250               // if slide duration is less than 250ms
 	            && Math.abs(delta.x) > 20            // and if slide amt is greater than 20px
 	            || Math.abs(delta.x) > width/2;      // or if slide amt is greater than half the width
-
 	        // determine if slide attempt is past start and end
 	        var isPastBounds =
 	            !index && delta.x > 0                            // if first slide and slide amt is greater than 0
 	            || index == slides.length - 1 && delta.x < 0;    // or if last slide and slide amt is less than 0
-
 	        if (options.continuous) isPastBounds = false;
-
 	        // determine direction of swipe (true:right, false:left)
 	        var direction = delta.x < 0;
-
 	        // if not scrolling vertically
 	        if (!isScrolling) {
+		        if (isValidSlide && !isPastBounds) {
+		          	if(direction){
+			            if (options.continuous) { // we need to get the next in this direction in place
+			                move(circle(index-1), -width, 0);
+			                move(circle(index+2), width, 0);
+			            } else {
+			                move(index-1, -width, 0);
+			            }
+			            move(index, slidePos[index]-width, speed);
+			            move(circle(index+1), slidePos[circle(index+1)]-width, speed);
+			            index = circle(index+1);
+		          	} else {
+			            if (options.continuous) { // we need to get the next in this direction in place
+			                move(circle(index+1), width, 0);
+			                move(circle(index-2), -width, 0);
+			            } else {
+			                move(index+1, width, 0);
+			            }
+			            move(index, slidePos[index]+width, speed);
+			            move(circle(index-1), slidePos[circle(index-1)]+width, speed);
+			            index = circle(index-1);
 
-	        if (isValidSlide && !isPastBounds) {
-
-	          if (direction) {
-
-	            if (options.continuous) { // we need to get the next in this direction in place
-
-	              move(circle(index-1), -width, 0);
-	              move(circle(index+2), width, 0);
-
-	            } else {
-	              move(index-1, -width, 0);
-	            }
-
-	            move(index, slidePos[index]-width, speed);
-	            move(circle(index+1), slidePos[circle(index+1)]-width, speed);
-	            index = circle(index+1);
-
-	          } else {
-	            if (options.continuous) { // we need to get the next in this direction in place
-
-	              move(circle(index+1), width, 0);
-	              move(circle(index-2), -width, 0);
-
-	            } else {
-	              move(index+1, width, 0);
-	            }
-
-	            move(index, slidePos[index]+width, speed);
-	            move(circle(index-1), slidePos[circle(index-1)]+width, speed);
-	            index = circle(index-1);
-
-	          }
-
-	          options.callback && options.callback(index, slides[index]);
-
-	        } else {
-
-	          if (options.continuous) {
-
-	            move(circle(index-1), -width, speed);
-	            move(index, 0, speed);
-	            move(circle(index+1), width, speed);
-
-	          } else {
-
-	            move(index-1, -width, speed);
-	            move(index, 0, speed);
-	            move(index+1, width, speed);
-	          }
-
+		            }
+		            options.callback && options.callback(index, slides[index]);
+		        } else {
+		            if (options.continuous) {
+			            move(circle(index-1), -width, speed);
+			            move(index, 0, speed);
+			            move(circle(index+1), width, speed);
+		            } else {
+			            move(index-1, -width, speed);
+			            move(index, 0, speed);
+			            move(index+1, width, speed);
+		          	}
+		        }
 	        }
-	        }
-	       // kill touchmove and touchend event listeners until touchstart called again
+	        // kill touchmove and touchend event listeners until touchstart called again
 	        element.removeEventListener('touchmove', events, false)
 	        element.removeEventListener('touchend', events, false)
-
 	    },
 	    transitionEnd: function(event) {
 	        if (parseInt(event.target.getAttribute('data-index'), 10) == index) {
