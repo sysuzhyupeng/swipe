@@ -77,8 +77,8 @@ function Swipe(container, options){
 	}
 	function prev(){
 		/*
-			当目前可以继续滑动的时候，slide(index - 1),
-			当不能滑动的时候，如果index大于0，slide(index - 1)
+			当设置continuous为true，即最后一张滑动之后是第一张的时候(可以不断滑动)，slide(index - 1),
+			否则，只有index大于0，slide(index - 1)
 		*/
 		if(options.continuous) slide(index - 1);
 		else if(index) slide(index - 1);
@@ -88,6 +88,7 @@ function Swipe(container, options){
 		else if(index < slides.length - 1) slide(index + 1);
 	}
 	function circle(index){
+		//获得传入index除length的模
 		return (slides.length + (index % slides.length)) % slides.length;
 	}
 	//滑动核心函数
@@ -96,15 +97,21 @@ function Swipe(container, options){
 		if(index === to) return;
 		//当浏览器支持transitions
 		if(browser.transitions){
-			// 1: backward, -1: forward
+			/*
+				Math.abs()方法返回数的绝对值
+				1: backward, -1: forward
+			*/
 			var direction = Math.abs(index - to) / (index - to);
-			// 获得slide的实际方向
+			// 获得slide的实际运动方向
 			if(options.continuous){
 				var natual_direction = direction;
+				//从记录位置的slidePos数组中，获取to的pos
 				direction = -slidePos[circle[to]] / width;
-				// if going forward but to < index, use to = slides.length + to
-        		// if going backward but to > index, use to = -slides.length + to
-        		if (direction !== natural_direction) to =  -direction * slides.length + to;
+				// if going forward but to < index, to = slides.length + to
+        		// if going backward but to > index, to = -slides.length + to
+        		if (direction !== natural_direction){
+        			to =  -direction * slides.length + to;
+        		}
 			}
 			//把超过1次的先进行diff处理
 			var diff = Math.abs(index - to) - 1;
@@ -114,9 +121,23 @@ function Swipe(container, options){
 			}
 			to = circle(to);
 			move(index, width * direction, slideSpeed || speed);
+			move(to, 0, slideSpeed || speed);
+      		if (options.continuous) move(circle(to - direction), -(width * direction), 0);
+		} else {
+			to = circle(to);
+			animate(index * -width, to * -width, slideSpeed || speed);
 		}
+		//操作完成之后将当前index修改为to
+		index = to;
+		/*
+			这里做了一点改进，当callback为函数的时候，
+			执行callback，并将callback执行结果作为offloadFn的参数
+		*/
+		offloadFn( typeof options.callback === 'function' && options.callback(index, slides[index]));
 	}
-	//dist这里指代距离
+	/*
+		dist这里指代距离
+	*/
 	function move(index, dist, speed){
 		translate(index, dist, speed);
 		slidePos[index] = dist;
@@ -139,6 +160,28 @@ function Swipe(container, options){
 	    style.MozTransform =
 	    style.OTransform = 'translateX(' + dist + 'px)';
 	}
+	function animate(from, to, speed) {
+	    // if not an animation, just reposition
+	    if (!speed) {
+	        element.style.left = to + 'px';
+	        return;
+	    }
+	    var start = +new Date;
+	    var timer = setInterval(function() {
+	    var timeElap = +new Date - start;
+	        if(timeElap > speed) {
+	        element.style.left = to + 'px';
+	        if (delay) begin();
+	        options.transitionEnd && options.transitionEnd.call(event, index, slides[index]);
+	        clearInterval(timer);
+	        return;
+	      }
+	        element.style.left = (( (to - from) * (Math.floor((timeElap / speed) * 100) / 100) ) + from) + 'px';
+	    }, 4);
+	}
+	var delay = options.auto || 0;
+	var interval;
+
 	function begin(){
 		//delay之后调用next函数
 		interval = setTimeout(next, delay);
