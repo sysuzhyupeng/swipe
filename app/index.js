@@ -34,6 +34,47 @@ function Swipe(container, options){
 	//当传入的continuous有定义的时候，使用options.continuous
 	options.continuous = options.continuous !== undefined ? options.continuous : true;
 
+	//开始函数
+	function setup(){
+		//container下的第二层子节点
+		slides = element.children;
+		length = slides.length;
+		//如果只有一个slide把continuous设置为false
+		if(slides.length < 2) options.continuous = false;
+		//当只有两个slide的特殊情况
+		if(browser.transitions && options.continuous && slides.length < 3){
+			element.appendChild(slides[0].cloneNode(true));
+			//0 1 0 1
+			element.appendChild(element.children[1].cloneNode(true));
+			//element增加了子节点之后，重新定义slides
+			slides = element.children;
+		}
+		//创建一个新数组存储每个slide的当前位置
+		slidePos = new Array(slides.length);
+		//获取容器宽度
+		width = container.getBoundingClientRect().width || container.offsetWidth;
+		element.style.width = (slides.length * width) + 'px';
+		var pos = slides.length;
+		//循环所有slide，设置index和width以及left
+		while(pos--){
+			var slide = slides[pos];
+			slide.style.width = width + 'px';
+			slide.setAttribute('data-index', pos);
+			if(browser.transitions){
+				//这里的数组索引pos和width都是数字，可以直接相乘
+				slide.style.left = (pos * -width) + 'px';
+				move(pos, index > pos ? -width : (index < pos ? width : 0), 0);
+			}
+		}
+		//如果continuous为true，即最后一张滑动之后到第一张
+		if(options.continuous && browser.transitions){
+			move(circle(index - 1), -width, 0);
+     		move(circle(index + 1), width, 0);
+		}
+		if(!browser.transitions) element.style.left = (index * -width) + 'px';
+		//设置可见
+		container.style.visibility = 'visible';
+	}
 	function prev(){
 		/*
 			当目前可以继续滑动的时候，slide(index - 1),
