@@ -111,10 +111,17 @@ function Swipe(container, options){
 		delta = {},
 		isScrolling;
 
+	/*
+		addEventListener的参数listener必须是一个实现了EventListener接口的对象，或者是一个函数。
+		这里使用的就是一个实现了EventListener接口的对象，
+		当EventListener 所注册的事件发生的时候，handleEvent方法会被调用。
+	*/
 	var events = {
 		handleEvent: function(event){
+			//event参数自动获取到当前的事件对象
 			switch(event.type){
 				//根据不同的事件调用不同的逻辑
+				//调用这个方法时，this指向event对象
 				case 'touchstart': this.start(event); break;
 		        case 'touchmove': this.move(event); break;
 		        case 'touchend': offloadFn(this.end(event)); break;
@@ -137,10 +144,12 @@ function Swipe(container, options){
 			};
 			isScrolling = undefined;
 			delta = {};
+			//绑定touchmove和touchend
 			element.addEventListener('touchmove', this, false);
 			element.addEventListener('touchend', this, false);
 		},
 		move: function(event){
+			//保证只有一指活动并且没有
 			if(event.touches.length > 1 || event.scale && event.scale !== 1){
 				return;
 			}
@@ -177,6 +186,7 @@ function Swipe(container, options){
   			setup();
   		}
   	}
+  	//将内部函数暴露给外面调用
   	return {
   		setup: function(){
   			//将setup等函数暴露出去
@@ -187,6 +197,7 @@ function Swipe(container, options){
   			slide(to, speed);
   		},
   		prev: function(){
+  			//取消目前滑动
   			stop();
   			prev();
   		},
@@ -207,6 +218,28 @@ function Swipe(container, options){
   		},
   		kill: function(){
   			stop();
+  			//把所有元素的width和left都置空
+  			element.style.width = '';
+  			element.style.left = '';
+  			var pos = slides.length;
+  			while(pos--){
+  				var slide = slides[pos];
+  				element.style.width = '';
+  				element.style.left = '';
+  				if(browser.transitions) translate(pos, 0, 0);
+  			}
+  			//移除所有事件监听
+  			if(browser.addEventListener){
+  				element.removeEventListener('touchstart', events, false);
+		        element.removeEventListener('webkitTransitionEnd', events, false);
+		        element.removeEventListener('msTransitionEnd', events, false);
+		        element.removeEventListener('oTransitionEnd', events, false);
+		        element.removeEventListener('otransitionend', events, false);
+		        element.removeEventListener('transitionend', events, false);
+		        window.removeEventListener('resize', events, false);
+  			} else {
+  				window.onresize = null;
+  			}
   		}
   	}
 }
